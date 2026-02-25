@@ -11,7 +11,7 @@ use std::sync::Arc;
 // - read only be default, mutation possible via `make_unique` and `as_mut_slice_unique`
 
 #[derive(Clone)]
-pub struct Storage{
+pub(crate) struct Storage{
     buf : Arc<[f32]>,
 }
 
@@ -25,14 +25,14 @@ impl std::fmt::Debug for Storage{
 }
 
 impl Storage{
-    pub fn from_vec(&self,vec: Vec<f32>)-> Self{
+    pub fn from_vec(vec: Vec<f32>)-> Self{
         Self{
             buf: Arc::<[f32]>::from(vec),
         }
     }
 
     pub fn zeroes(&self,len : usize) -> Self{
-        Self::from_vec(self,vec![0.0;len])
+        Self::from_vec(vec![0.0;len])
     }
 
     #[inline]

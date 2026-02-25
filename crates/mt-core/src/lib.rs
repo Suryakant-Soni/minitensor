@@ -1,4 +1,6 @@
 pub mod storage;
+pub mod tensor;
+pub mod error;
 
 #[cfg(test)]
 mod tests {
