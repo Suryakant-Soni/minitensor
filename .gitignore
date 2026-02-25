@@ -1,0 +1,41 @@
+# Rust
+/target
+**/target
+
+# Cargo
+Cargo.lock
+
+# If you later build binaries or apps, remove above Cargo.lock ignore
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# IntelliJ / CLion
+.idea/
+
+# Vim
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Coverage
+*.profraw
+*.profdata
+
+# Generated docs
+target/doc/
+
+# Rust Analyzer
+*.rs.bk
+
+# Temporary files
+*.tmp
+*.bak
+
+# OS files
+Thumbs.db
