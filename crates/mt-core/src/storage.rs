@@ -31,7 +31,7 @@ impl Storage{
         }
     }
 
-    pub fn zeroes(&self,len : usize) -> Self{
+    pub fn zeros(len : usize) -> Self{
         Self::from_vec(vec![0.0;len])
     }
 

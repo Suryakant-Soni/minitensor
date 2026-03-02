@@ -11,6 +11,7 @@ pub enum MtError{
 pub enum TensorError{
     NumelOverflow,
     ShapeDataLenMismatch{expected: usize, got: usize},
+    DimensionIndexInvalid{dimension_length: usize}
 }
 
 #[derive(Debug)]
