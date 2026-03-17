@@ -10,8 +10,9 @@ pub enum MtError{
 #[derive(Debug)]
 pub enum TensorError{
     NumelOverflow,
-    ShapeDataLenMismatch{expected: usize, got: usize},
-    DimensionIndexInvalid{dimension_length: usize}
+    IndexRankMismatch{expected: usize, got: usize},
+    DimensionIndexInvalid{dimension_length: usize},
+    IndexNotBound{max_index_length: usize},
 }
 
 #[derive(Debug)]

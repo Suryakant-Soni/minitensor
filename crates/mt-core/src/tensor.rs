@@ -17,12 +17,12 @@ struct Tensor {
 }
 
 impl Tensor {
-    pub fn from_vec(&mut self, data: Vec<f32>, shape: Vec<usize>) -> Result<Self> {
+    pub fn from_vec(data: Vec<f32>, shape: Vec<usize>) -> Result<Self> {
         // validate product(shape) == data.len() // compute strides
         // validating that data length should be equal to numel
         let numel = Self::compute_numel(&shape)?;
         if data.len() != numel {
-            return Err(TensorError::ShapeDataLenMismatch {
+            return Err(TensorError::IndexRankMismatch {
                 expected: numel,
                 got: data.len(),
             })?;
@@ -33,7 +33,6 @@ impl Tensor {
             strides: Self::contiguous_strides(&shape),
             shape: shape,
         };
-
         Ok(obj)
     }
     fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
@@ -65,22 +64,28 @@ impl Tensor {
         };
         Ok(obj)
     }
+    // this method will take indices of the high level and give out data at flat index position
     pub fn get(&self, idx: &[usize]) -> Result<f32> {
         // validate if the length of given indices is correct
         if self.shape.len() != idx.len() {
-            return Err(TensorError::ShapeDataLenMismatch {
+            return Err(TensorError::IndexRankMismatch {
                 expected: self.shape.len(),
                 got: idx.len(),
             })?;
         }
-        // validate if all the input indices are bound by shape
+        // validate if all the input indices are bound
         for i in 0..idx.len(){
-            if idx[i] <= self.shape[i]{
-                return Err(TensorError)
+            if idx[i] >= self.shape[i]{
+                return Err(TensorError::IndexNotBound {
+                    max_index_length : self.shape[i]-1,
+                })?;
             }
         }
         // compute flat index using strides + offset
-        return Ok(5.9);
+        let index: usize = idx.iter().zip(self.strides.iter()).map(|(&i,&j)| i * j).sum();
+        
+        let value = self.storage.get(index + self.offset).expect("Tensor::get: flat index out of bounds (internal bug)");
+        Ok(*value)
     }
 }
 

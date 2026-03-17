@@ -3,7 +3,6 @@ use std::sync::Arc;
 // it does not matter if they are advertised and ordered or how consumed at other layers, but to keep them in warehouse
 // they will always be kept in the simplest deterministic way, a fixed row so we are always deterministic of our warehouse size
 
-
 // physical backing buffer for tensors
 
 // - flat storage, can be shared using views via ARC
@@ -25,42 +24,46 @@ impl std::fmt::Debug for Storage{
 }
 
 impl Storage{
-    pub fn from_vec(vec: Vec<f32>)-> Self{
+    pub(crate) fn from_vec(vec: Vec<f32>)-> Self{
         Self{
             buf: Arc::<[f32]>::from(vec),
         }
     }
 
-    pub fn zeros(len : usize) -> Self{
+    pub(crate) fn zeros(len : usize) -> Self{
         Self::from_vec(vec![0.0;len])
     }
 
     #[inline]
-    pub fn len(&self) -> usize{
+    pub(crate) fn len(&self) -> usize{
         self.buf.len()
     }
     #[inline]
-    pub fn is_empty(&self)-> bool{
+    pub(crate) fn is_empty(&self)-> bool{
         self.buf.is_empty()
     }
     #[inline]
-    pub fn as_slice(&self) -> &[f32]{
+    pub(crate) fn as_slice(&self) -> &[f32]{
         &self.buf
     }
 
     #[inline]
-    pub fn as_ptr(&self) -> *const f32{
+    pub(crate) fn as_ptr(&self) -> *const f32{
         self.buf.as_ptr()
     }
 
     #[inline]
-    pub fn ptr_eq(&self,other:&Storage) -> bool{
+    pub(crate) fn ptr_eq(&self,other:&Storage) -> bool{
         Arc::ptr_eq(&self.buf, &other.buf)
     }
 
     #[inline]
-    pub fn data_id(&self) -> usize{
+    pub(crate) fn data_id(&self) -> usize{
         self.as_ptr() as usize
+    }
+
+    pub(crate) fn get(&self,index: usize) -> Option<&f32>{
+        self.buf.get(index)
     }
 
     // if the buffer is shared, it clones the entire buffer since we are using 
@@ -70,7 +73,7 @@ impl Storage{
     // if multiple references exists - it will copy the data and create new allocation bundle it in arc
     // and push it to buf field of same struct instance (self)
 
-    pub fn make_unique(&mut self){
+    pub(crate) fn make_unique(&mut self){
         if Arc::get_mut(&mut self.buf).is_some(){
             // this means that you can get mutable access since there is not other reference of this arc
             return;
@@ -83,10 +86,8 @@ impl Storage{
     }
 
     // get a mutable slice to the unique backing buffer, cloning first if it was shared
-    pub fn as_mut_slice_unique(&mut self) -> &mut[f32]{
+    pub(crate) fn as_mut_slice_unique(&mut self) -> &mut[f32]{
         self.make_unique();
-        Arc::get_mut(&mut self.buf).expect("getting mutable handle failed since the borrow rule does not allow mutable object of already shared instance")
+        Arc::get_mut(&mut self.buf).expect("Arc is still shared (not unique) even after make_unique()")
     }
-
-    
 }
