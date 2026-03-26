@@ -9,7 +9,7 @@
 
 use crate::error::*;
 use crate::storage::Storage;
-pub(crate) struct Tensor {
+pub struct Tensor {
     storage: Storage,
     shape: Vec<usize>,
     strides: Vec<usize>,
@@ -90,8 +90,9 @@ impl Tensor {
         // validate if all the input indices are bound
         for i in 0..idx.len(){
             if idx[i] >= self.shape[i]{
-                return Err(TensorError::IndexNotBound {
+                return Err(TensorError::IndexOutOfBounds {
                     dimension_length : self.shape[i],
+                    requested_index: idx[i],
                 }.into());
             }
         }

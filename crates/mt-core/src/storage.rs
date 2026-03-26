@@ -38,10 +38,12 @@ impl Storage{
     pub(crate) fn len(&self) -> usize{
         self.buf.len()
     }
+
     #[inline]
     pub(crate) fn is_empty(&self)-> bool{
         self.buf.is_empty()
     }
+
     #[inline]
     pub(crate) fn as_slice(&self) -> &[f32]{
         &self.buf
@@ -68,7 +70,6 @@ impl Storage{
 
     // if the buffer is shared, it clones the entire buffer since we are using 
     // copy-on-write principle
-
     // make unique will use copy-on-write if there is not other shared reference of this arc
     // if multiple references exists - it will copy the data and create new allocation bundle it in arc
     // and push it to buf field of same struct instance (self)
@@ -78,7 +79,6 @@ impl Storage{
             // this means that you can get mutable access since there is not other reference of this arc
             return;
         }
-
         // clone data into new allocation area
         let cloned = self.buf.as_ref().to_vec();
         self.buf = Arc::<[f32]>::from(cloned);
