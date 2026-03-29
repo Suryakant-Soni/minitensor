@@ -9,6 +9,7 @@
 
 use crate::error::*;
 use crate::storage::Storage;
+use std::ops::{Add, Mul, Sub};
 pub struct Tensor {
     storage: Storage,
     shape: Vec<usize>,
@@ -22,7 +23,7 @@ impl Tensor {
         // validating that data length should be equal to numel
         let numel = Self::compute_numel(&shape)?;
         if data.len() != numel {
-            return Err(TensorError::ShapeDataLenMismatch{
+            return Err(TensorError::ShapeDataLenMismatch {
                 expected: numel,
                 got: data.len(),
             })?;
@@ -47,6 +48,7 @@ impl Tensor {
         }
         strides
     }
+    // it computes the number of element in the tensor by multiplying elements of shape,also checks multiplication overflow in computation
     fn compute_numel(shape: &[usize]) -> Result<usize> {
         let mut res = 1usize;
         for &elem in shape {
@@ -54,6 +56,7 @@ impl Tensor {
         }
         Ok(res)
     }
+
     pub(crate) fn zeros(shape: Vec<usize>) -> Result<Self> {
         // allocate storage
         let obj = Self {
@@ -64,10 +67,14 @@ impl Tensor {
         };
         Ok(obj)
     }
+
     // this method will take indices of the high level and give out data at flat index position
     pub(crate) fn get(&self, idx: &[usize]) -> Result<f32> {
         let index = self.get_flat_index(idx)?;
-        let value = self.storage.get(index).expect("Tensor::get: flat index out of bounds (internal bug)");
+        let value = self
+            .storage
+            .get(index)
+            .expect("Tensor::get: flat index out of bounds (internal bug)");
         Ok(*value)
     }
 
@@ -75,29 +82,99 @@ impl Tensor {
     pub(crate) fn get_mut(&mut self, idx: &[usize]) -> Result<&mut f32> {
         let index = self.get_flat_index(idx)?;
         let slice = self.storage.as_mut_slice_unique();
-        let elem = slice.get_mut(index).expect("Tensor::get_mut: calculated flat index is out of bounds");
+        let elem = slice
+            .get_mut(index)
+            .expect("Tensor::get_mut: calculated flat index is out of bounds");
         Ok(elem)
     }
 
-    fn get_flat_index(&self, idx : &[usize]) -> Result<usize>{
+    // this method gives us a mutable hanlde to guaranted unique contiguous buffer
+    // only works for contiguous buffer
+    pub(crate) fn as_mut_slice_contiguous_unique(&mut self) -> Result<&mut [f32]> {
+        // check if the storage is contiguous and offset is zero
+        if !self.is_contiguous() || self.offset != 0 {
+            return Err(TensorError::NotContiguous.into());
+        }
+        // check if the length of logical elements in tensor is same as no. of elements in storage
+        // imp check for fast path storage api (contiguous) to work
+        if self.storage.len() != Self::compute_numel(&self.shape)? {
+            return Err(TensorError::InvalidLayout.into());
+        }
+        Ok(self.storage.as_mut_slice_unique())
+    }
+
+    // this method checks if the tensor underlying storage is contiguous or not
+    pub(crate) fn is_contiguous(&mut self) -> bool {
+        self.strides == Self::contiguous_strides(&self.shape)
+    }
+
+    // get the numel by on the fly computation, we will not save this in state as this is derived quantity not fundamental one
+    pub(crate) fn numel(&self) -> Result<usize> {
+        Self::compute_numel(&self.shape)
+    }
+
+    fn get_flat_index(&self, idx: &[usize]) -> Result<usize> {
         // validate if the length of given indices is correct
         if self.shape.len() != idx.len() {
             return Err(TensorError::IndexRankMismatch {
                 expected: self.shape.len(),
                 got: idx.len(),
-            }.into());
+            }
+            .into());
         }
         // validate if all the input indices are bound
-        for i in 0..idx.len(){
-            if idx[i] >= self.shape[i]{
+        for i in 0..idx.len() {
+            if idx[i] >= self.shape[i] {
                 return Err(TensorError::IndexOutOfBounds {
-                    dimension_length : self.shape[i],
+                    dimension_length: self.shape[i],
                     requested_index: idx[i],
-                }.into());
+                }
+                .into());
             }
         }
         // compute flat index using strides
-        let index: usize = idx.iter().zip(self.strides.iter()).map(|(&i,&j)| i * j).sum();
-        Ok(index+self.offset)
+        let index: usize = idx
+            .iter()
+            .zip(self.strides.iter())
+            .map(|(&i, &j)| i * j)
+            .sum();
+        Ok(index + self.offset)
+    }
+}
+
+// inline helper functions
+impl Tensor {
+    #[inline]
+    pub(crate) fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    #[inline]
+    pub(crate) fn strides(&self) -> &[usize] {
+        &self.strides
+    }
+}
+
+impl<'a, 'b> Add<&'b Tensor> for &'a Tensor {
+    type Output = Result<Tensor>;
+
+    fn add(self, rhs: &'b Tensor) -> Self::Output {
+        crate::ops::binary::add(self, rhs)
+    }
+}
+
+impl<'a, 'b> Sub<&'b Tensor> for &'a Tensor {
+    type Output = Result<Tensor>;
+
+    fn sub(self, rhs: &'b Tensor) -> Self::Output {
+        crate::ops::binary::sub(self, rhs)
+    }
+}
+
+impl<'a, 'b> Mul<&'b Tensor> for &'a Tensor {
+    type Output = Result<Tensor>;
+
+    fn mul(self, rhs: &'b Tensor) -> Self::Output {
+        crate::ops::binary::mul(self, rhs)
     }
 }
