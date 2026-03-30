@@ -18,6 +18,7 @@ pub struct Tensor {
 }
 
 impl Tensor {
+    // ===== Constructors =====
     pub(crate) fn from_vec(data: Vec<f32>, shape: Vec<usize>) -> Result<Self> {
         // validate product(shape) == data.len() // compute strides
         // validating that data length should be equal to numel
@@ -36,26 +37,6 @@ impl Tensor {
         };
         Ok(obj)
     }
-    fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
-        let len = shape.len();
-        let mut strides = vec![0usize; len];
-        if len == 0 {
-            return strides;
-        }
-        strides[len - 1] = 1;
-        for i in (0..len - 1).rev() {
-            strides[i] = shape[i + 1] * strides[i + 1];
-        }
-        strides
-    }
-    // it computes the number of element in the tensor by multiplying elements of shape,also checks multiplication overflow in computation
-    fn compute_numel(shape: &[usize]) -> Result<usize> {
-        let mut res = 1usize;
-        for &elem in shape {
-            res = res.checked_mul(elem).ok_or(TensorError::NumelOverflow)?;
-        }
-        Ok(res)
-    }
 
     pub(crate) fn zeros(shape: Vec<usize>) -> Result<Self> {
         // allocate storage
@@ -67,40 +48,18 @@ impl Tensor {
         };
         Ok(obj)
     }
+}
 
-    // this method will take indices of the high level and give out data at flat index position
-    pub(crate) fn get(&self, idx: &[usize]) -> Result<f32> {
-        let index = self.get_flat_index(idx)?;
-        let value = self
-            .storage
-            .get(index)
-            .expect("Tensor::get: flat index out of bounds (internal bug)");
-        Ok(*value)
+impl Tensor {
+    // ===== Metadata =====
+    #[inline]
+    pub(crate) fn shape(&self) -> &[usize] {
+        &self.shape
     }
 
-    // this method will take indices of the high level and give out mutable handle for data at flat index position
-    pub(crate) fn get_mut(&mut self, idx: &[usize]) -> Result<&mut f32> {
-        let index = self.get_flat_index(idx)?;
-        let slice = self.storage.as_mut_slice_unique();
-        let elem = slice
-            .get_mut(index)
-            .expect("Tensor::get_mut: calculated flat index is out of bounds");
-        Ok(elem)
-    }
-
-    // this method gives us a mutable hanlde to guaranted unique contiguous buffer
-    // only works for contiguous buffer
-    pub(crate) fn as_mut_slice_contiguous_unique(&mut self) -> Result<&mut [f32]> {
-        // check if the storage is contiguous and offset is zero
-        if !self.is_contiguous() || self.offset != 0 {
-            return Err(TensorError::NotContiguous.into());
-        }
-        // check if the length of logical elements in tensor is same as no. of elements in storage
-        // imp check for fast path storage api (contiguous) to work
-        if self.storage.len() != Self::compute_numel(&self.shape)? {
-            return Err(TensorError::InvalidLayout.into());
-        }
-        Ok(self.storage.as_mut_slice_unique())
+    #[inline]
+    pub(crate) fn strides(&self) -> &[usize] {
+        &self.strides
     }
 
     // this method checks if the tensor underlying storage is contiguous or not
@@ -112,7 +71,10 @@ impl Tensor {
     pub(crate) fn numel(&self) -> Result<usize> {
         Self::compute_numel(&self.shape)
     }
+}
 
+impl Tensor {
+    // ===== Indexing =====
     fn get_flat_index(&self, idx: &[usize]) -> Result<usize> {
         // validate if the length of given indices is correct
         if self.shape.len() != idx.len() {
@@ -140,20 +102,72 @@ impl Tensor {
             .sum();
         Ok(index + self.offset)
     }
+
+    // this method will take indices of the high level and give out data at flat index position
+    pub(crate) fn get(&self, idx: &[usize]) -> Result<f32> {
+        let index = self.get_flat_index(idx)?;
+        let value = self
+            .storage
+            .get(index)
+            .expect("Tensor::get: flat index out of bounds (internal bug)");
+        Ok(*value)
+    }
+
+    // this method will take indices of the high level and give out mutable handle for data at flat index position
+    pub(crate) fn get_mut(&mut self, idx: &[usize]) -> Result<&mut f32> {
+        let index = self.get_flat_index(idx)?;
+        let slice = self.storage.as_mut_slice_unique();
+        let elem = slice
+            .get_mut(index)
+            .expect("Tensor::get_mut: calculated flat index is out of bounds");
+        Ok(elem)
+    }
 }
 
-// inline helper functions
 impl Tensor {
-    #[inline]
-    pub(crate) fn shape(&self) -> &[usize] {
-        &self.shape
+    // ===== Helper functions =====
+    fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
+        let len = shape.len();
+        let mut strides = vec![0usize; len];
+        if len == 0 {
+            return strides;
+        }
+        strides[len - 1] = 1;
+        for i in (0..len - 1).rev() {
+            strides[i] = shape[i + 1] * strides[i + 1];
+        }
+        strides
     }
-
-    #[inline]
-    pub(crate) fn strides(&self) -> &[usize] {
-        &self.strides
+    // it computes the number of element in the tensor by multiplying elements of shape,also checks multiplication overflow in computation
+    fn compute_numel(shape: &[usize]) -> Result<usize> {
+        let mut res = 1usize;
+        for &elem in shape {
+            res = res.checked_mul(elem).ok_or(TensorError::NumelOverflow)?;
+        }
+        Ok(res)
     }
 }
+
+impl Tensor{
+      // ===== Storage operations =====
+
+    // this method gives us a mutable hanlde to guaranted unique contiguous buffer
+    // only works for contiguous buffer
+    pub(crate) fn as_mut_slice_contiguous_unique(&mut self) -> Result<&mut [f32]> {
+        // check if the storage is contiguous and offset is zero
+        if !self.is_contiguous() || self.offset != 0 {
+            return Err(TensorError::NotContiguous.into());
+        }
+        // check if the length of logical elements in tensor is same as no. of elements in storage
+        // imp check for fast path storage api (contiguous) to work
+        if self.storage.len() != Self::compute_numel(&self.shape)? {
+            return Err(TensorError::InvalidLayout.into());
+        }
+        Ok(self.storage.as_mut_slice_unique())
+    }
+}
+
+// ===== Compute Operations =====
 
 impl<'a, 'b> Add<&'b Tensor> for &'a Tensor {
     type Output = Result<Tensor>;
