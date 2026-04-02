@@ -17,8 +17,8 @@ pub struct Tensor {
     offset: usize,
 }
 
+// ===== Constructors =====
 impl Tensor {
-    // ===== Constructors =====
     pub(crate) fn from_vec(data: Vec<f32>, shape: Vec<usize>) -> Result<Self> {
         // validate product(shape) == data.len() // compute strides
         // validating that data length should be equal to numel
@@ -27,7 +27,8 @@ impl Tensor {
             return Err(TensorError::ShapeDataLenMismatch {
                 expected: numel,
                 got: data.len(),
-            })?;
+            }
+            .into());
         }
         let obj = Self {
             storage: Storage::from_vec(data),
@@ -50,8 +51,8 @@ impl Tensor {
     }
 }
 
+// ===== Metadata =====
 impl Tensor {
-    // ===== Metadata =====
     #[inline]
     pub(crate) fn shape(&self) -> &[usize] {
         &self.shape
@@ -62,6 +63,10 @@ impl Tensor {
         &self.strides
     }
 
+    #[inline]
+    pub(crate) fn offset(&self) -> usize {
+        self.offset
+    }
     // this method checks if the tensor underlying storage is contiguous or not
     pub(crate) fn is_contiguous(&mut self) -> bool {
         self.strides == Self::contiguous_strides(&self.shape)
@@ -73,8 +78,9 @@ impl Tensor {
     }
 }
 
+// ===== Indexing =====
 impl Tensor {
-    // ===== Indexing =====
+    // it will take the logical index slice and convert into corresponding flat backing index
     fn get_flat_index(&self, idx: &[usize]) -> Result<usize> {
         // validate if the length of given indices is correct
         if self.shape.len() != idx.len() {
@@ -124,8 +130,8 @@ impl Tensor {
     }
 }
 
+// ===== Helper functions =====
 impl Tensor {
-    // ===== Helper functions =====
     fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
         let len = shape.len();
         let mut strides = vec![0usize; len];
@@ -148,9 +154,8 @@ impl Tensor {
     }
 }
 
-impl Tensor{
-      // ===== Storage operations =====
-
+// ===== Storage operations =====
+impl Tensor {
     // this method gives us a mutable hanlde to guaranted unique contiguous buffer
     // only works for contiguous buffer
     pub(crate) fn as_mut_slice_contiguous_unique(&mut self) -> Result<&mut [f32]> {
@@ -168,10 +173,8 @@ impl Tensor{
 }
 
 // ===== Compute Operations =====
-
 impl<'a, 'b> Add<&'b Tensor> for &'a Tensor {
     type Output = Result<Tensor>;
-
     fn add(self, rhs: &'b Tensor) -> Self::Output {
         crate::ops::binary::add(self, rhs)
     }
@@ -190,5 +193,116 @@ impl<'a, 'b> Mul<&'b Tensor> for &'a Tensor {
 
     fn mul(self, rhs: &'b Tensor) -> Self::Output {
         crate::ops::binary::mul(self, rhs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests_utilities::assert_approx_eq;
+    #[test]
+    fn from_vec_working_expected() {
+        let mut tensor = Tensor::from_vec(vec![2.3, 3.2, 5.32, 43.3], vec![2, 2]).unwrap();
+        // shape should be correctly propagated
+        assert_eq!(tensor.shape(), vec![2, 2]);
+        // backing storage length should be 4
+        assert_eq!(tensor.storage.len(), 4);
+        // tensor should be contiguoug by default
+        assert!(tensor.is_contiguous());
+        // shape and strides should be of same length
+        assert_eq!(tensor.strides().len(), tensor.shape().len());
+        // by default offset should be zero
+        assert_eq!(tensor.offset(), 0);
+        // strides should be correct
+        assert_eq!(tensor.strides(), vec![2, 1]);
+    }
+    #[test]
+    fn zeros_working_expected() {
+        let mut tensor = Tensor::zeros(vec![2, 2]).unwrap();
+        // shape should be correctly propagated
+        assert_eq!(tensor.shape(), vec![2, 2]);
+        // backing storage length should be 4
+        assert_eq!(tensor.storage.len(), 4);
+        // tensor should be contiguoug by default
+        assert!(tensor.is_contiguous());
+        // shape and strides should be of same length
+        assert_eq!(tensor.strides().len(), tensor.shape().len());
+        // by default offset should be zero
+        assert_eq!(tensor.offset(), 0);
+        // strides should be correct
+        assert_eq!(tensor.strides(), vec![2, 1]);
+    }
+
+    #[test]
+    fn from_vec_shape_data_len_mismatch() {
+        let tensor = Tensor::from_vec(vec![2.3, 3.2, 5.32, 43.3], vec![2, 1]);
+        assert!(matches!(
+            tensor,
+            Err(MtError::Tensor(TensorError::ShapeDataLenMismatch {
+                expected: 2,
+                got: 4
+            }))
+        ));
+    }
+
+    #[test]
+    fn from_vec_numel_calculation_overflows() {
+        let tensor = Tensor::from_vec(vec![2.0, 1.0], vec![usize::MAX, 2]);
+        assert!(matches!(
+            tensor,
+            Err(MtError::Tensor(TensorError::NumelOverflow))
+        ));
+    }
+
+    #[test]
+    fn test_tensor_indexing_features() {
+        let tensor = Tensor::from_vec(vec![2.3, 3.2, 5.32, 43.3], vec![2, 2]).unwrap();
+        // positive cases
+        // getting flat index from logical index is working
+        assert_eq!(tensor.get_flat_index(&[1, 1]).unwrap(), 3);
+        assert_eq!(tensor.get_flat_index(&[0, 1]).unwrap(), 1);
+        // get value at logical index is working
+        assert_eq!(tensor.get(&[1, 0]).unwrap(), 5.32);
+        assert_eq!(tensor.get(&[0, 0]).unwrap(), 2.3);
+        // negative cases
+        // if invalid logical index length is passed
+        assert!(matches!(
+            tensor.get_flat_index(&[2, 2, 1]),
+            Err(MtError::Tensor(TensorError::IndexRankMismatch {
+                expected: 2,
+                got: 3
+            }))
+        ));
+        //if logical index' length is correct but the index element is invalid
+        assert!(matches!(
+            tensor.get_flat_index(&[0, 3]),
+            Err(MtError::Tensor(TensorError::IndexOutOfBounds {
+                dimension_length: 2,
+                requested_index: 3
+            }))
+        ));
+    }
+
+    #[test]
+    fn test_getting_mutable_handle_to_element() {
+        let mut tensor = Tensor::from_vec(vec![2.3, 3.2, 5.32, 43.3], vec![2, 2]).unwrap();
+        assert_eq!(tensor.get(&[1, 0]).unwrap(), 5.32);
+        let handle = tensor.get_mut(&[1, 0]).unwrap();
+        *handle = 5.20;
+        assert_ne!(tensor.get(&[1, 0]).unwrap(), 5.32);
+        assert_eq!(tensor.get(&[1, 0]).unwrap(), 5.20);
+    }
+
+    // testing compute operations
+    #[test]
+    fn test_tensor_addition_success() {
+        let tensor_a = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
+        let tensor_b = Tensor::from_vec(vec![1.1, 4.5, 0.8, 2.1], vec![2, 2]).unwrap();
+        let tensor_c = (&tensor_a + &tensor_b).unwrap();
+        assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 3.4);
+        assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 7.7);
+        assert_eq!(tensor_c.numel().unwrap(), 4);
+        assert_eq!(tensor_a.shape(), tensor_c.shape());
+        assert_eq!(tensor_b.strides(), tensor_c.strides());
     }
 }

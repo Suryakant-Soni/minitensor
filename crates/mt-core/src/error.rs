@@ -4,6 +4,22 @@ pub type Result<T> = std::result::Result<T, MtError>;
 pub enum MtError{
     Tensor(TensorError),
     Storage(StorageError),
+    InvalidInput{reason: String},
+}
+
+impl MtError{
+    pub(crate) fn invalid_input(reason : impl Into<String>)-> Self {
+        Self::InvalidInput{
+            reason: reason.into(),
+        }
+    }
+}
+
+pub(crate) fn ensure_non_empty<T>(name : &str,slice: &[T]) -> Result<()>{
+       if slice.is_empty(){
+        return Err(MtError::invalid_input(format!("{name} cannot be empty")))
+       } 
+       Ok(())
 }
 
 #[derive(Debug)]

@@ -1,16 +1,10 @@
-pub(crate) mod storage;
-pub mod tensor;
 pub mod error;
 pub mod ops;
+pub(crate) mod storage;
+pub mod tensor;
 
+pub use error::{MtError, Result};
 pub use tensor::Tensor;
-pub use error::{MtError,Result};
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-    }
-}
+pub(crate) mod tests_utilities;
