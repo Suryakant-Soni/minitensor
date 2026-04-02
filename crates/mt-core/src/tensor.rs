@@ -305,4 +305,29 @@ mod tests {
         assert_eq!(tensor_a.shape(), tensor_c.shape());
         assert_eq!(tensor_b.strides(), tensor_c.strides());
     }
+    #[test]
+    fn test_tensor_subtraction_success() {
+        let tensor_a = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
+        let tensor_b = Tensor::from_vec(vec![1.1, 4.5, 0.8, 2.1], vec![2, 2]).unwrap();
+        let tensor_c = (&tensor_a - &tensor_b).unwrap();
+
+        assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 1.2);
+        assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), -1.3);
+        assert_eq!(tensor_c.numel().unwrap(), 4);
+        assert_eq!(tensor_a.shape(), tensor_c.shape());
+        assert_eq!(tensor_b.strides(), tensor_c.strides());
+    }
+
+    #[test]
+    fn test_tensor_multiplication_success() {
+        let tensor_a = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
+        let tensor_b = Tensor::from_vec(vec![1.1, 4.5, 0.8, 2.1], vec![2, 2]).unwrap();
+        let tensor_c = (&tensor_a * &tensor_b).unwrap();
+
+        assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 2.53);
+        assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 14.4);
+        assert_eq!(tensor_c.numel().unwrap(), 4);
+        assert_eq!(tensor_a.shape(), tensor_c.shape());
+        assert_eq!(tensor_b.strides(), tensor_c.strides());
+    }
 }
