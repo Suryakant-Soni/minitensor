@@ -1,11 +1,12 @@
 use crate::Tensor;
 use crate::error::*;
+use crate::tensor::shape;
 
 // forms the logical N-D coordinate for a row-major traversal position, based only on shape
-fn unravel_index(mut index: usize, shape: &[usize]) -> Vec<usize> {
+fn convert_flat_position_to_logical_nd(mut index: usize, shape: &[usize]) -> Vec<usize> {
     // initiate a vector of the same length as shape
     let mut idx = vec![0; shape.len()];
-    let numel = Tensor::compute_numel(shape).expect("input shape is invalid");
+    let numel = shape::compute_numel(shape).expect("input shape is invalid");
     assert!(index < numel);
     // now loop the shape to find the logical indices at every dimenstion with the help of shape
     // we will start from the reverse of loop from the units place of the lowest dimension(fastest changing dimension)
@@ -38,7 +39,6 @@ pub(crate) fn mul(a: &Tensor, b: &Tensor) -> Result<Tensor> {
 
 // binary_op is a generic method for binary/element-wise operations, the operation function is passed separately
 // this is stateless because no need to hold any state for the element wise operation
-
 fn binary_op<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
 where
     F: Fn(f32, f32) -> f32,
@@ -50,7 +50,8 @@ where
     let out_buf = out.as_mut_slice_contiguous_unique()?;
     for i in 0..a.numel()? {
         // get the logical format on index
-        let idx = unravel_index(i, a.shape());
+        // why unravel is important - unravel_index is needed here because a.get(&idx) and b.get(&idx) expect a logical N-D index, while your loop variable i is only a flat traversal position.
+        let idx = convert_flat_position_to_logical_nd(i, a.shape());
         let av = a.get(&idx)?;
         let bv = b.get(&idx)?;
         out_buf[i] = f(av, bv);
@@ -94,13 +95,13 @@ mod tests {
 
     #[test]
     fn unravel_index_working_as_expected(){
-        assert_eq!(unravel_index(0,&[2,2]),vec![0,0]);        
-        assert_eq!(unravel_index(2,&[2,2]),vec![1,0]);        
+        assert_eq!(convert_flat_position_to_logical_nd(0,&[2,2]),vec![0,0]);        
+        assert_eq!(convert_flat_position_to_logical_nd(2,&[2,2]),vec![1,0]);        
     }
 
     #[test]
     #[should_panic]
     fn unravel_index_panics_with_index_greater_than_numel(){
-        assert_eq!(unravel_index(5,&[2,2]),vec![1,1]);
+        assert_eq!(convert_flat_position_to_logical_nd(5,&[2,2]),vec![1,1]);
     }
 }
