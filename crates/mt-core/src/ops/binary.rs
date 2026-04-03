@@ -5,11 +5,12 @@ use crate::error::*;
 fn unravel_index(mut index: usize, shape: &[usize]) -> Vec<usize> {
     // initiate a vector of the same length as shape
     let mut idx = vec![0; shape.len()];
-
+    let numel = Tensor::compute_numel(shape).expect("input shape is invalid");
+    assert!(index < numel);
     // now loop the shape to find the logical indices at every dimenstion with the help of shape
     // we will start from the reverse of loop from the units place of the lowest dimension(fastest changing dimension)
     for i in (0..shape.len()).rev() {
-        // dimension index will be the remaining after the shape dimension length multiple
+        // dimension index will be the remaining after the shape dimension length's multiple
         idx[i] = index % shape[i];
         // updated index because it has to view from one dimesion up
         index /= shape[i];
@@ -89,5 +90,17 @@ mod tests {
             tensor_c,
             Err(MtError::Tensor(TensorError::ShapeMismatch))
         ));
+    }
+
+    #[test]
+    fn unravel_index_working_as_expected(){
+        assert_eq!(unravel_index(0,&[2,2]),vec![0,0]);        
+        assert_eq!(unravel_index(2,&[2,2]),vec![1,0]);        
+    }
+
+    #[test]
+    #[should_panic]
+    fn unravel_index_panics_with_index_greater_than_numel(){
+        assert_eq!(unravel_index(5,&[2,2]),vec![1,1]);
     }
 }

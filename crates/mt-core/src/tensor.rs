@@ -9,6 +9,7 @@
 
 use crate::error::*;
 use crate::storage::Storage;
+use crate::ops::reshape;
 use std::ops::{Add, Mul, Sub};
 pub struct Tensor {
     storage: Storage,
@@ -49,6 +50,14 @@ impl Tensor {
         };
         Ok(obj)
     }
+    fn internal_reshape_to_new_tensor(&self,shape: &[usize],strides: &[usize], offset: usize)->Tensor{
+        Tensor{
+            storage: self.storage.clone(),
+            shape: shape.to_vec(),
+            strides: strides.to_vec(),
+            offset,
+        }
+    }
 }
 
 // ===== Metadata =====
@@ -68,7 +77,7 @@ impl Tensor {
         self.offset
     }
     // this method checks if the tensor underlying storage is contiguous or not
-    pub(crate) fn is_contiguous(&mut self) -> bool {
+    pub(crate) fn is_contiguous(&self) -> bool {
         self.strides == Self::contiguous_strides(&self.shape)
     }
 
@@ -132,7 +141,7 @@ impl Tensor {
 
 // ===== Helper functions =====
 impl Tensor {
-    fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
+    pub(crate) fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
         let len = shape.len();
         let mut strides = vec![0usize; len];
         if len == 0 {
@@ -145,7 +154,7 @@ impl Tensor {
         strides
     }
     // it computes the number of element in the tensor by multiplying elements of shape,also checks multiplication overflow in computation
-    fn compute_numel(shape: &[usize]) -> Result<usize> {
+    pub(crate) fn compute_numel(shape: &[usize]) -> Result<usize> {
         let mut res = 1usize;
         for &elem in shape {
             res = res.checked_mul(elem).ok_or(TensorError::NumelOverflow)?;
@@ -193,6 +202,15 @@ impl<'a, 'b> Mul<&'b Tensor> for &'a Tensor {
 
     fn mul(self, rhs: &'b Tensor) -> Self::Output {
         crate::ops::binary::mul(self, rhs)
+    }
+}
+
+// ===== Reshape=====
+impl Tensor {
+    // reshape and form a new tensor with new shape and same old storage
+    pub(crate) fn reshape(&self, new_shape: &[usize]) -> Result<Tensor> {
+        let md= reshape::compute_reshape_metadata(self, new_shape)?;   
+        Ok(self.internal_reshape_to_new_tensor(new_shape, md.strides(), md.offset()))
     }
 }
 

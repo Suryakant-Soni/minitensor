@@ -34,6 +34,7 @@ impl Storage {
         Self::from_vec(vec![0.0; len])
     }
 
+
     #[inline]
     pub(crate) fn len(&self) -> usize {
         self.buf.len()

@@ -5,10 +5,16 @@ pub enum MtError{
     Tensor(TensorError),
     Storage(StorageError),
     InvalidInput{reason: String},
+    ProcessingAborted{reason: String},
 }
 
 impl MtError{
     pub(crate) fn invalid_input(reason : impl Into<String>)-> Self {
+        Self::InvalidInput{
+            reason: reason.into(),
+        }
+    }
+    pub(crate) fn processing_aborted(reason : impl Into<String>)-> Self {
         Self::InvalidInput{
             reason: reason.into(),
         }
