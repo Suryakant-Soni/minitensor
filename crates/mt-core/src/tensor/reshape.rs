@@ -25,7 +25,7 @@ impl Tensor {
         strides: &[usize],
         offset: usize,
     ) -> Tensor {
-        Self::new_from_parts(self.storage_clone(), shape.to_vec(), strides.to_vec(), offset)
+        Self::from_parts_unchecked(self.storage_clone(), shape.to_vec(), strides.to_vec(), offset)
     }
 
     // reshape and form a new tensor with new shape and same old storage

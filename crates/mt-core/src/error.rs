@@ -34,6 +34,7 @@ pub enum TensorError{
     InvalidLayout,
     ShapeMismatch,
     NotContiguous,
+    OffsetNotZero,
     ShapeDataLenMismatch{expected: usize, got: usize},
     IndexRankMismatch{expected: usize, got: usize},
     IndexOutOfBounds{dimension_length: usize,requested_index : usize},

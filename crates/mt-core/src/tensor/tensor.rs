@@ -19,7 +19,7 @@ pub struct Tensor {
 
 // ===== Constructors =====
 impl Tensor {
-    pub(crate) fn new_from_parts(
+    pub(crate) fn from_parts_unchecked(
         storage: Storage,
         shape: Vec<usize>,
         strides: Vec<usize>,
@@ -64,7 +64,6 @@ impl Tensor {
     }
 }
 
-// ===== Metadata =====
 impl Tensor {
     #[inline]
     pub(crate) fn shape(&self) -> &[usize] {
@@ -88,7 +87,7 @@ impl Tensor {
 }
 // ===== Helper functions =====
 impl Tensor {
-    pub(crate) fn storage(&self) -> &Storage{
+    pub(crate) fn storage_ref(&self) -> &Storage{
         &self.storage
     }
     pub(crate) fn storage_mut(&mut self) -> &mut Storage{
@@ -110,7 +109,7 @@ mod tests {
         // shape should be correctly propagated
         assert_eq!(tensor.shape(), vec![2, 2]);
         // backing storage length should be 4
-        assert_eq!(tensor.storage.len(), 4);
+        assert_eq!(tensor.storage_ref().len(), 4);
         // tensor should be contiguoug by default
         assert!(tensor.is_contiguous());
         // shape and strides should be of same length
@@ -126,7 +125,7 @@ mod tests {
         // shape should be correctly propagated
         assert_eq!(tensor.shape(), vec![2, 2]);
         // backing storage length should be 4
-        assert_eq!(tensor.storage.len(), 4);
+        assert_eq!(tensor.storage_ref().len(), 4);
         // tensor should be contiguoug by default
         assert!(tensor.is_contiguous());
         // shape and strides should be of same length
@@ -158,5 +157,4 @@ mod tests {
         ));
     }
 
-    // testing compute operations
 }
