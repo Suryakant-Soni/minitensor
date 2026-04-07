@@ -169,7 +169,7 @@ function binary_op(a, b, f):
 
         advance_index_and_flats(
             idx,
-            result_shape,
+           result_shape,
             prepared_a.strides,
             prepared_b.strides,
             &a_flat,

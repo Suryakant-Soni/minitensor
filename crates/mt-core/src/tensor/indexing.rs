@@ -62,8 +62,20 @@ impl Tensor {
     }
 }
 
-// increment logical index and flat index in sync from their previous values, instead of recalculating flat index from scratch
-// panic assumption ending logical index should not be passed to this method, it is panic aware
+// Internal kernel helper.
+//
+// Advances `l_idx` to the next logical coordinate in row-major order and
+// updates `a_flat` and `b_flat` to remain consistent with that new logical index.
+//
+// Preconditions:
+// - `l_idx.len() == result_shape.len()`
+// - `a_strides.len() == result_shape.len()`
+// - `b_strides.len() == result_shape.len()`
+// - `a_flat` and `b_flat` must correspond to the current `l_idx`
+// - `l_idx` must not already be the last valid index in `result_shape`
+//
+// Panics:
+// - If called when `l_idx` is already the last valid logical index.
 pub(crate) fn compute_index_on_increment(
     l_idx: &mut [usize],
     a_flat: &mut usize,
@@ -166,5 +178,58 @@ mod tests {
     #[should_panic]
     fn unravel_index_panics_with_index_greater_than_numel() {
         assert_eq!(convert_flat_position_to_logical_nd(5, &[2, 2]), vec![1, 1]);
+    }
+
+    #[test]
+    fn compute_index_on_increment_positive() {
+        let mut l_idx = [0usize, 0];
+        let mut a_flat = 0usize;
+        let mut b_flat = 0usize;
+        let result_shape = [2, 3];
+        let numel = shape::compute_numel(&result_shape).unwrap();
+        let l_idx_expected = vec![[0usize, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]];
+
+        for i in 0usize..numel {
+            assert_eq!(a_flat, i);
+            assert_eq!(b_flat, i);
+            assert_eq!(l_idx_expected[i], l_idx);
+            if i == numel - 1 {
+                return;
+            }
+            compute_index_on_increment(
+                &mut l_idx,
+                &mut a_flat,
+                &mut b_flat,
+                &result_shape,
+                &[3, 1],
+                &[3, 1],
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn compute_index_on_increment_negative() {
+        let mut l_idx = [0usize, 2];
+        let mut a_flat = 0usize;
+        let mut b_flat = 0usize;
+        let result_shape = [2, 3];
+        let numel = shape::compute_numel(&result_shape).unwrap();
+
+        for i in 0usize..numel {
+            assert_eq!(a_flat, i);
+            assert_eq!(b_flat, i);
+            if i == numel - 1 {
+                return;
+            }
+            compute_index_on_increment(
+                &mut l_idx,
+                &mut a_flat,
+                &mut b_flat,
+                &result_shape,
+                &[3, 1],
+                &[3, 1],
+            );
+        }
     }
 }
