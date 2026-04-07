@@ -6,23 +6,23 @@ use crate::tensor::{indexing, shape};
 // add method adds 2 tensors element wise, it call binary_op with the add operation function directive
 
 pub(crate) fn add(a: &Tensor, b: &Tensor) -> Result<Tensor> {
-    binary_op_new(a, b, |x, y| x + y)
+    binary_op(a, b, |x, y| x + y)
 }
 
 // sub method is stateless and it is called from tensor internal
 // sub method subtracts b from a tensors element wise, it call binary_op with the sub operation function directive
 
 pub(crate) fn sub(a: &Tensor, b: &Tensor) -> Result<Tensor> {
-    binary_op_new(a, b, |x, y| x - y)
+    binary_op(a, b, |x, y| x - y)
 }
 
 pub(crate) fn mul(a: &Tensor, b: &Tensor) -> Result<Tensor> {
-    binary_op_new(a, b, |x, y| x * y)
+    binary_op(a, b, |x, y| x * y)
 }
 
 // binary_op is a generic method for binary/element-wise operations, the operation function is passed separately
 // this is stateless because no need to hold any state for the element wise operation
-fn binary_op<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
+fn binary_op_old<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
 where
     F: Fn(f32, f32) -> f32,
 {
@@ -44,7 +44,7 @@ where
 
 // this is stateful version, it holds the state of last logical index and last flat indexes of both operands,
 // which is used to calculate next flat position
-fn binary_op_new<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
+fn binary_op<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
 where
     F: Fn(f32, f32) -> f32,
 {
@@ -91,7 +91,7 @@ mod tests {
     fn binary_op_successful() {
         let tensor_a = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
         let tensor_b = Tensor::from_vec(vec![1.1, 4.5, 0.8, 2.1], vec![2, 2]).unwrap();
-        let tensor_c = binary_op_new(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
         assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 3.4);
         assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 7.7);
         assert_eq!(tensor_c.numel().unwrap(), 4);
@@ -102,7 +102,7 @@ mod tests {
     fn test_binary_op_shape_validation_failed() {
         let tensor_a = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
         let tensor_b = Tensor::from_vec(vec![1.1, 4.5, 0.8, 2.1, 3.2, 5.3], vec![3, 2]).unwrap();
-        let tensor_c = binary_op_new(&tensor_a, &tensor_b, |x, y| x + y);
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y);
         assert!(matches!(
             tensor_c,
             Err(MtError::Tensor(TensorError::ShapeMismatch))
