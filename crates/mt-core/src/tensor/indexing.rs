@@ -43,6 +43,14 @@ impl Tensor {
         Ok(*value)
     }
 
+    pub(crate) fn get_with_flat(&self, flat: usize) -> Result<f32> {
+        let value = self
+            .storage_ref()
+            .get(flat)
+            .expect("Tensor::get: flat index out of bounds (internal bug)");
+        Ok(*value)
+    }
+
     // this method will take indices of the high level and give out mutable handle for data at flat index position
     pub(crate) fn get_mut(&mut self, idx: &[usize]) -> Result<&mut f32> {
         let index = self.get_flat_index(idx)?;
@@ -51,6 +59,40 @@ impl Tensor {
             .get_mut(index)
             .expect("Tensor::get_mut: calculated flat index is out of bounds");
         Ok(elem)
+    }
+}
+
+// increment logical index and flat index in sync from their previous values, instead of recalculating flat index from scratch
+// panic assumption ending logical index should not be passed to this method, it is panic aware
+pub(crate) fn compute_index_on_increment(
+    l_idx: &mut [usize],
+    a_flat: &mut usize,
+    b_flat: &mut usize,
+    result_shape: &[usize],
+    a_strides: &[usize],
+    b_strides: &[usize],
+) {
+    // traverse the dimensions starting from the right most dimension
+    for dim in (0..result_shape.len()).rev() {
+        // dimension limit reached/overflown
+        // l_idx = logical index, a_flat = flat index for tensor a, b_flat = flat index for tensor b
+        if l_idx[dim] == result_shape[dim] - 1 {
+            // -> last index already processed, should not be the case
+            if dim == 0 {
+                panic!("last index already reached, should be controlled by the caller");
+            }
+            // reset the overflown dimension to zero
+            l_idx[dim] = 0;
+            // since the next dimension will increment flat index wrt its strides, rewind the contribution of old dimension from the flat count
+            *a_flat -= a_strides[dim] * (result_shape[dim] - 1);
+            *b_flat -= b_strides[dim] * (result_shape[dim] - 1);
+            continue;
+        }
+        l_idx[dim] += 1;
+        // add strides to flats for the dimension dim, ( the steps needed for this dimension to be incremented)
+        *a_flat += a_strides[dim];
+        *b_flat += b_strides[dim];
+        break;
     }
 }
 

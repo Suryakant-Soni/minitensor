@@ -1,0 +1,258 @@
+Yes. Here is the clean pseudo code for the better kernel path for broadcast-aware binary ops, without creating full index maps and without using get() inside the hot loop.
+
+I’ll give you:
+
+preparation phase
+kernel loop with reusable logical index
+a more infra-style incremental version
+Version 1: easiest good version
+
+This one is easiest to implement correctly first.
+
+Preparation
+function binary_op(a, b, f):
+    result_shape = compute_broadcast_shape(a.shape, b.shape)
+
+    prepared_a = prepare_for_broadcast(a, result_shape)
+    prepared_b = prepare_for_broadcast(b, result_shape)
+
+    out = zeros(result_shape)
+    out_buf = out.mutable_contiguous_buffer()
+
+    total = numel(result_shape)
+
+    for flat_out in 0 .. total:
+        idx = unravel_index(flat_out, result_shape)
+
+        a_flat = compute_flat_index_from_parts(
+            idx,
+            prepared_a.shape,
+            prepared_a.strides,
+            prepared_a.offset
+        )
+
+        b_flat = compute_flat_index_from_parts(
+            idx,
+            prepared_b.shape,
+            prepared_b.strides,
+            prepared_b.offset
+        )
+
+        av = prepared_a.storage[a_flat]
+        bv = prepared_b.storage[b_flat]
+
+        out_buf[flat_out] = f(av, bv)
+
+    return out
+Broadcast preparation
+function prepare_for_broadcast(tensor, result_shape):
+    aligned_shape   = left_pad_with_ones(tensor.shape, len(result_shape))
+    aligned_strides = left_pad_with_zeros_or_dummy(tensor.strides, len(result_shape))
+
+    new_strides = array of length len(result_shape)
+
+    for dim in 0 .. rank-1:
+        if aligned_shape[dim] == result_shape[dim]:
+            new_strides[dim] = aligned_strides[dim]
+        else if aligned_shape[dim] == 1:
+            new_strides[dim] = 0
+        else:
+            error "not broadcastable"
+
+    return PreparedTensor(
+        storage = tensor.storage,
+        shape   = result_shape,
+        strides = new_strides,
+        offset  = tensor.offset
+    )
+Flat index from metadata
+function compute_flat_index_from_parts(idx, shape, strides, offset):
+    flat = offset
+
+    for dim in 0 .. len(shape)-1:
+        flat += idx[dim] * strides[dim]
+
+    return flat
+
+This is already better than your current version because:
+
+no get()
+no repeated bounds validation
+no flat→nd→get→flat roundtrip through Tensor API
+
+But it still creates a fresh logical index for each output element.
+
+Version 2: better version with reusable logical index buffer
+
+This avoids building a new Vec every iteration.
+
+Kernel pseudo code
+function binary_op(a, b, f):
+    result_shape = compute_broadcast_shape(a.shape, b.shape)
+
+    prepared_a = prepare_for_broadcast(a, result_shape)
+    prepared_b = prepare_for_broadcast(b, result_shape)
+
+    out = zeros(result_shape)
+    out_buf = out.mutable_contiguous_buffer()
+
+    total = numel(result_shape)
+    rank = len(result_shape)
+
+    idx = [0, 0, ..., 0]   // length = rank
+
+    for flat_out in 0 .. total:
+        a_flat = prepared_a.offset
+        b_flat = prepared_b.offset
+
+        for dim in 0 .. rank-1:
+            a_flat += idx[dim] * prepared_a.strides[dim]
+            b_flat += idx[dim] * prepared_b.strides[dim]
+
+        av = prepared_a.storage[a_flat]
+        bv = prepared_b.storage[b_flat]
+
+        out_buf[flat_out] = f(av, bv)
+
+        increment_nd_index(idx, result_shape)
+
+    return out
+Increment logical index like an odometer
+function increment_nd_index(idx, shape):
+    for dim in reverse(rank-1 .. 0):
+        idx[dim] += 1
+
+        if idx[dim] < shape[dim]:
+            return
+
+        idx[dim] = 0
+
+This version is a good next step for you.
+
+Why it is better:
+
+no per-iteration Vec creation
+no repeated bounds checks
+keeps correctness for non-contiguous and broadcasted inputs
+still easy to reason about
+Version 3: more infra-style incremental flat-offset update
+
+This is closer to serious kernel execution.
+
+Idea:
+
+keep current logical index
+keep current a_flat and b_flat
+when index increments, update flats incrementally instead of recomputing from scratch
+Pseudo code
+function binary_op(a, b, f):
+    result_shape = compute_broadcast_shape(a.shape, b.shape)
+
+    prepared_a = prepare_for_broadcast(a, result_shape)
+    prepared_b = prepare_for_broadcast(b, result_shape)
+
+    out = zeros(result_shape)
+    out_buf = out.mutable_contiguous_buffer()
+
+    rank = len(result_shape)
+    total = numel(result_shape)
+
+    idx = [0, 0, ..., 0]
+
+    a_flat = prepared_a.offset
+    b_flat = prepared_b.offset
+
+    for flat_out in 0 .. total:
+        av = prepared_a.storage[a_flat]
+        bv = prepared_b.storage[b_flat]
+        out_buf[flat_out] = f(av, bv)
+
+        advance_index_and_flats(
+            idx,
+            result_shape,
+            prepared_a.strides,
+            prepared_b.strides,
+            &a_flat,
+            &b_flat
+        )
+
+    return out
+Advance both logical index and flat positions
+function advance_index_and_flats(idx, shape, a_strides, b_strides, a_flat, b_flat):
+    for dim in reverse(rank-1 .. 0):
+        idx[dim] += 1
+        a_flat += a_strides[dim]
+        b_flat += b_strides[dim]
+
+        if idx[dim] < shape[dim]:
+            return
+
+        idx[dim] = 0
+
+        a_flat -= shape[dim] * a_strides[dim]
+        b_flat -= shape[dim] * b_strides[dim]
+
+This version is trickier, but better for hot loops because:
+
+no unravel
+no recompute flat index from scratch
+only incremental arithmetic
+What I recommend for you
+
+For your current MiniTensor phase:
+
+Start with Version 2
+
+It is the best tradeoff:
+
+correct
+easier than full incremental flats
+much better than current get() path
+
+Then later move to Version 3.
+
+Minimal mental model
+Current slow path
+flat_out
+→ new logical idx vec
+→ Tensor::get()
+→ get_flat_index()
+→ storage read
+Better path
+flat_out
+→ reusable logical idx
+→ direct flat computation from prepared strides
+→ storage read
+Best path
+increment logical idx and flat offsets together
+→ direct storage read
+One compact pseudo code you can copy
+binary_op(a, b, f):
+    result_shape = compute_broadcast_shape(a.shape, b.shape)
+
+    prepared_a = prepare_for_broadcast(a, result_shape)
+    prepared_b = prepare_for_broadcast(b, result_shape)
+
+    out = zeros(result_shape)
+    out_buf = out.mutable_contiguous_buffer()
+
+    idx = [0] * rank(result_shape)
+
+    for out_i in 0 .. numel(result_shape):
+        a_flat = prepared_a.offset
+        b_flat = prepared_b.offset
+
+        for d in 0 .. rank(result_shape)-1:
+            a_flat += idx[d] * prepared_a.strides[d]
+            b_flat += idx[d] * prepared_b.strides[d]
+
+        out_buf[out_i] = f(
+            prepared_a.storage[a_flat],
+            prepared_b.storage[b_flat]
+        )
+
+        increment_nd_index(idx, result_shape)
+
+    return out
+
+If you want, next I can turn this pseudo code into a Rust-shaped skeleton matching your current module structure.
