@@ -87,17 +87,16 @@ impl Tensor {
 }
 // ===== Helper functions =====
 impl Tensor {
-    pub(crate) fn storage_ref(&self) -> &Storage{
+    pub(crate) fn storage_ref(&self) -> &Storage {
         &self.storage
     }
-    pub(crate) fn storage_mut(&mut self) -> &mut Storage{
+    pub(crate) fn storage_mut(&mut self) -> &mut Storage {
         &mut self.storage
     }
-    pub(crate) fn storage_clone(&self) ->Storage{
+    pub(crate) fn storage_clone(&self) -> Storage {
         self.storage.clone()
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -156,5 +155,4 @@ mod tests {
             Err(MtError::Tensor(TensorError::NumelOverflow))
         ));
     }
-
 }
