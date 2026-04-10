@@ -60,7 +60,7 @@ where
     // logical index
     let mut l_idx = vec![0usize; binary_md.result_shape().len()];
     let len = shape::compute_numel(binary_md.result_shape())?;
-    for i in 0..len{
+    for i in 0..len {
         // intital traversal - will always start with zero
         // logical index - [0,0]
         // initial flat index - 0
@@ -97,7 +97,7 @@ mod tests {
         assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 7.7);
         assert_eq!(tensor_c.numel().unwrap(), 4);
         assert_eq!(tensor_a.shape(), tensor_c.shape());
-        assert_eq!(tensor_b.strides(), tensor_c.strides());
+        assert_eq!(tensor_c.strides(),&[2,1]);
     }
     #[test]
     fn binary_op_a_broadcasted_successful() {
@@ -110,6 +110,55 @@ mod tests {
         assert_approx_eq(tensor_c.get(&[1, 1]).unwrap(), 6.8);
         assert_eq!(tensor_c.numel().unwrap(), 4);
         assert_eq!(tensor_a.shape(), tensor_c.shape());
+    }
+    #[test]
+    fn binary_op_b_broadcasted_successful() {
+        let tensor_b = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
+        let tensor_a = Tensor::from_vec(vec![0.8, 2.1], vec![2]).unwrap();
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
+        assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 3.1);
+        assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 5.3);
+        assert_approx_eq(tensor_c.get(&[1, 0]).unwrap(), 6.1);
+        assert_approx_eq(tensor_c.get(&[1, 1]).unwrap(), 6.8);
+        assert_eq!(tensor_c.numel().unwrap(), 4);
+        assert_eq!(tensor_b.shape(), tensor_c.shape());
+    }
+    #[test]
+    fn broadcasting_unit_tensor_2by2() {
+        let tensor_b = Tensor::from_vec(vec![2.3, 3.2, 5.3, 4.7], vec![2, 2]).unwrap();
+        let tensor_a = Tensor::from_vec(vec![0.8], vec![1]).unwrap();
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
+        assert_approx_eq(tensor_c.get(&[0, 0]).unwrap(), 3.1);
+        assert_approx_eq(tensor_c.get(&[0, 1]).unwrap(), 4.0);
+        assert_approx_eq(tensor_c.get(&[1, 0]).unwrap(), 6.1);
+        assert_approx_eq(tensor_c.get(&[1, 1]).unwrap(), 5.5);
+        assert_eq!(tensor_c.numel().unwrap(), 4);
+        assert_eq!(tensor_b.shape(), tensor_c.shape());
+    }
+    #[test]
+    fn single_elements_both_sides_1by1() {
+        let tensor_b = Tensor::from_vec(vec![2.3], vec![1]).unwrap();
+        let tensor_a = Tensor::from_vec(vec![0.8], vec![1]).unwrap();
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
+        assert_approx_eq(tensor_c.get(&[0]).unwrap(), 3.1);
+        assert_eq!(tensor_c.numel().unwrap(), 1);
+        assert_eq!(tensor_b.shape(), tensor_c.shape());
+    }
+    #[test]
+    fn one_element_expansion_on_multiple_dimensions() {
+        let tensor_b = Tensor::from_vec(
+            vec![2.3, 3.2, 5.3, 4.7, 1.5, 3.2, 4.2, 1.5, 1.3, 2.6, 1.1, 1.3],
+            vec![2, 3, 2],
+        )
+        .unwrap();
+        let tensor_a = Tensor::from_vec(vec![1.1], vec![1, 1, 1]).unwrap();
+        let tensor_c = binary_op(&tensor_a, &tensor_b, |x, y| x + y).unwrap();
+        assert_approx_eq(tensor_c.get(&[0, 0, 0]).unwrap(), 3.4);
+        assert_approx_eq(tensor_c.get(&[0, 1, 1]).unwrap(), 5.8);
+        assert_approx_eq(tensor_c.get(&[1, 0, 0]).unwrap(), 5.3);
+        assert_approx_eq(tensor_c.get(&[1, 2, 1]).unwrap(), 2.4);
+        assert_eq!(tensor_c.numel().unwrap(), 12);
+        assert_eq!(tensor_b.shape(), tensor_c.shape());
     }
     #[test]
     fn binary_op_both_tensors_broadcasted_successful() {
