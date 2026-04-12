@@ -4,8 +4,9 @@ use crate::tensor::shape;
 
 // ===== Storage operations =====
 impl Tensor {
-    // this method gives us a mutable hanlde to guaranted unique contiguous buffer
-    // only works for contiguous buffer
+    /// Returns a mutable handle to a guaranteed unique contiguous buffer.
+    ///
+    /// Only works for contiguous tensors with zero offset.
     pub(crate) fn as_mut_slice_contiguous_unique(&mut self) -> Result<&mut [f32]> {
         // check if the storage is contiguous and offset is zero
         if !self.is_contiguous() {

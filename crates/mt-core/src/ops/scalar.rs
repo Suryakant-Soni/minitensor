@@ -2,7 +2,7 @@ use crate::Result;
 use crate::Tensor;
 use crate::tensor::indexing;
 
-// element wise scalar operation
+/// Applies an element-wise scalar operation.
 fn scalar_op<F>(a: &Tensor, b: f32, f: F) -> Result<Tensor>
 where
     F: Fn(f32, f32) -> f32,
@@ -18,7 +18,7 @@ where
     Ok(out)
 }
 
-// add method for scalar operation , second top api , after user facing tensor add api is called
+/// Adds a scalar to each tensor element.
 pub(crate) fn add(a: &Tensor, b: f32) -> Result<Tensor> {
     scalar_op(a, b, |x, y| x + y)
 }

@@ -1,5 +1,5 @@
-use crate::{Result, TensorError};
 use crate::Tensor;
+use crate::{Result, TensorError};
 
 pub(crate) fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
     let len = shape.len();
@@ -13,7 +13,9 @@ pub(crate) fn contiguous_strides(shape: &[usize]) -> Vec<usize> {
     }
     strides
 }
-// it computes the number of element in the tensor by multiplying elements of shape,also checks multiplication overflow in computation
+/// Computes the number of elements in a tensor shape.
+///
+/// Returns an error if the multiplication overflows.
 pub(crate) fn compute_numel(shape: &[usize]) -> Result<usize> {
     let mut res = 1usize;
     for &elem in shape {
@@ -22,7 +24,7 @@ pub(crate) fn compute_numel(shape: &[usize]) -> Result<usize> {
     Ok(res)
 }
 
-// validate if the shape is same for the 2 tensors
+/// Validates that two tensors have the same shape.
 pub(crate) fn validate_same_shape(a: &Tensor, b: &Tensor) -> Result<()> {
     if a.shape() != b.shape() {
         return Err(TensorError::ShapeMismatch.into());

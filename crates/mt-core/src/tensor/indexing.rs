@@ -4,7 +4,7 @@ use crate::{Result, TensorError};
 
 // ===== Indexing =====
 impl Tensor {
-    // it will take the logical index slice and convert into corresponding flat backing index
+    /// Converts a logical index into the corresponding flat backing storage index.
     fn get_flat_index(&self, idx: &[usize]) -> Result<usize> {
         // validate if the length of given indices is correct
         if self.shape().len() != idx.len() {
@@ -33,7 +33,7 @@ impl Tensor {
         Ok(index + self.offset())
     }
 
-    // this method will take indices of the high level and give out data at flat index position
+    /// Returns the value at a logical tensor index.
     pub(crate) fn get(&self, idx: &[usize]) -> Result<f32> {
         let index = self.get_flat_index(idx)?;
         let value = self
@@ -51,7 +51,15 @@ impl Tensor {
         Ok(*value)
     }
 
-    // this method will take indices of the high level and give out mutable handle for data at flat index position
+    /// # Safety
+    ///
+    /// Caller must guarantee that `flat < self.storage_ref().len()`.
+    /// The pre-validation should lie in the tensor constructor.
+    pub(crate) unsafe fn get_with_flat_unchecked(&self, flat: usize) -> f32 {
+        unsafe { *self.storage_ref().get_unchecked(flat) }
+    }
+
+    /// Returns a mutable handle to the value at a logical tensor index.
     pub(crate) fn get_mut(&mut self, idx: &[usize]) -> Result<&mut f32> {
         let index = self.get_flat_index(idx)?;
         let slice = self.storage_mut().as_mut_slice_unique();
@@ -62,20 +70,22 @@ impl Tensor {
     }
 }
 
-// Internal kernel helper.
-//
-// Advances `l_idx` to the next logical coordinate in row-major order and
-// updates `a_flat` and `b_flat` to remain consistent with that new logical index.
-//
-// Preconditions:
-// - `l_idx.len() == result_shape.len()`
-// - `a_strides.len() == result_shape.len()`
-// - `b_strides.len() == result_shape.len()`
-// - `a_flat` and `b_flat` must correspond to the current `l_idx`
-// - `l_idx` must not already be the last valid index in `result_shape`
-//
-// Panics:
-// - If called when `l_idx` is already the last valid logical index.
+/// Internal kernel helper.
+///
+/// Advances `l_idx` to the next logical coordinate in row-major order and
+/// updates `a_flat` and `b_flat` to remain consistent with that new logical index.
+///
+/// # Preconditions
+///
+/// - `l_idx.len() == result_shape.len()`
+/// - `a_strides.len() == result_shape.len()`
+/// - `b_strides.len() == result_shape.len()`
+/// - `a_flat` and `b_flat` must correspond to the current `l_idx`
+/// - `l_idx` must not already be the last valid index in `result_shape`
+///
+/// # Panics
+///
+/// Panics if called when `l_idx` is already the last valid logical index.
 pub(crate) fn compute_index_on_increment(
     l_idx: &mut [usize],
     a_flat: &mut usize,
@@ -108,7 +118,7 @@ pub(crate) fn compute_index_on_increment(
     }
 }
 
-// forms the logical N-D coordinate for a row-major traversal position, based only on shape
+/// Forms the logical N-D coordinate for a row-major traversal position.
 pub(crate) fn convert_flat_position_to_logical_nd(mut index: usize, shape: &[usize]) -> Vec<usize> {
     // initiate a vector of the same length as shape
     let mut idx = vec![0; shape.len()];

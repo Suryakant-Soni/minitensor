@@ -58,7 +58,7 @@ pub enum OpError {
 #[derive(Debug)]
 pub enum StorageError {}
 
-// to support auto convert of specific errors to generic error MtError Object
+/// Converts tensor-specific errors into the generic `MtError` type.
 impl From<TensorError> for MtError {
     fn from(err: TensorError) -> Self {
         MtError::Tensor(err)

@@ -80,7 +80,9 @@ impl Tensor {
         self.offset
     }
 
-    // get the numel by on the fly computation, we will not save this in state as this is derived quantity not fundamental one
+    /// Computes the number of logical elements on the fly.
+    ///
+    /// This is derived from the shape rather than stored as tensor state.
     pub(crate) fn numel(&self) -> Result<usize> {
         shape::compute_numel(&self.shape)
     }

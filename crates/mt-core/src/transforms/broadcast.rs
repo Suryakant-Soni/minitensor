@@ -1,13 +1,13 @@
 use crate::error::OpError;
 use crate::{Result, Storage, Tensor};
 
-// Broadcast views are read-only views
+/// Read-only broadcast view metadata for one tensor operand.
 pub(crate) struct BroadcastView {
     strides: Vec<usize>,
     offset: usize,
 }
 
-// Broadcast views are read-only views
+/// Broadcast metadata for a binary tensor operation.
 pub(crate) struct BinaryBroadcastMetadata {
     result_shape: Vec<usize>,
     a: BroadcastView,
@@ -43,7 +43,9 @@ impl BroadcastView {
     }
 }
 
-// assumes : tensor a and b inputs are already validated to be consistent tensor data
+/// Computes broadcast metadata for two tensors.
+///
+/// Assumes both input tensors are already internally consistent.
 pub(crate) fn compute_broadcast_metadata(
     a: &Tensor,
     b: &Tensor,

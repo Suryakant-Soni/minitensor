@@ -33,7 +33,7 @@ impl Tensor {
         )
     }
 
-    // reshape and form a new tensor with new shape and same old storage
+    /// Reshapes this tensor into a new tensor that shares the same backing storage.
     pub(crate) fn reshape(&self, new_shape: &[usize]) -> Result<Tensor> {
         let md = compute_reshape_metadata(self, new_shape)?;
         Ok(self.internal_reshape_to_new_tensor(new_shape, md.strides(), md.offset()))

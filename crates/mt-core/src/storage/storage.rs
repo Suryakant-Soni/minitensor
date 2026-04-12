@@ -34,7 +34,6 @@ impl Storage {
         Self::from_vec(vec![0.0; len])
     }
 
-
     #[inline]
     pub(crate) fn len(&self) -> usize {
         self.buf.len()
@@ -69,12 +68,13 @@ impl Storage {
         self.buf.get(index)
     }
 
-    // if the buffer is shared, it clones the entire buffer since we are using
-    // copy-on-write principle
-    // make unique will use copy-on-write if there is not other shared reference of this arc
-    // if multiple references exists - it will copy the data and create new allocation bundle it in arc
-    // and push it to buf field of same struct instance (self)
-
+    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> &f32 {
+        unsafe { self.buf.get_unchecked(index) }
+    }
+    /// Makes the backing buffer unique using copy-on-write.
+    ///
+    /// If multiple references share the buffer, this clones the data into a new
+    /// allocation and stores it back on `self`.
     pub(crate) fn make_unique(&mut self) {
         let is_some = Arc::get_mut(&mut self.buf).is_some();
         if is_some {
@@ -87,7 +87,7 @@ impl Storage {
         debug_assert!(Arc::get_mut(&mut self.buf).is_some());
     }
 
-    // get a mutable slice to the unique backing buffer, cloning first if it was shared
+    /// Returns a mutable slice to the unique backing buffer, cloning first if shared.
     pub(crate) fn as_mut_slice_unique(&mut self) -> &mut [f32] {
         self.make_unique();
         Arc::get_mut(&mut self.buf)
