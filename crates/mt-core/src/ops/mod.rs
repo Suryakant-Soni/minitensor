@@ -1,4 +1,5 @@
-pub mod binary;
-pub mod traits;
-pub mod scalar;
-pub mod unary;
+pub(crate) mod binary;
+pub(crate) mod traits;
+pub(crate) mod scalar;
+pub(crate) mod unary;
+pub(crate) mod reduce;

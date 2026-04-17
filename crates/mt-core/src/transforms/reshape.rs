@@ -18,6 +18,7 @@ impl ReshapeMetadata {
         self.offset
     }
 }
+
 impl Tensor {
     pub(crate) fn internal_reshape_to_new_tensor(
         &self,
