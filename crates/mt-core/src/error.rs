@@ -36,6 +36,7 @@ pub enum TensorError {
     ShapeMismatch,
     NotContiguous,
     OffsetNotZero,
+    ZeroSizedTensor,
     ShapeDataLenMismatch {
         expected: usize,
         got: usize,
@@ -53,6 +54,7 @@ pub enum TensorError {
 #[derive(Debug)]
 pub enum OpError {
     BroadcastIncompatible,
+    AxisIndexInvalid,
 }
 
 #[derive(Debug)]

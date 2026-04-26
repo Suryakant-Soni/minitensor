@@ -18,6 +18,7 @@ pub(crate) fn mul(a: &Tensor, b: &Tensor) -> Result<Tensor> {
 }
 
 /// Applies a generic element-wise binary operation without traversal state reuse.
+/// TODO remove if this method becomes obsolete finally
 fn binary_op_old<F>(a: &Tensor, b: &Tensor, f: F) -> Result<Tensor>
 where
     F: Fn(f32, f32) -> f32,

@@ -5,3 +5,4 @@ pub mod layout;
 pub mod storage_access;
 pub mod unary;
 pub mod reduce;
+pub mod validate;

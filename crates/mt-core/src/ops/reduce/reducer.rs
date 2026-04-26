@@ -1,35 +1,29 @@
-use std::cmp::PartialOrd;
-use std::ops::Add;
 
-pub(crate) trait Reducer<T> {
-    fn identity() -> T;
-    fn combine(acc: T, elem: T) -> T;
+pub(crate) trait Reducer {
+    fn identity() -> f32;
+    fn combine(acc: f32, elem: f32) -> f32;
 }
 
-struct SumReducer;
+pub struct SumReducer;
 
-impl<T> Reducer<T> for SumReducer
-where
-    T: Add<Output = T> + Copy + Default,
+impl Reducer for SumReducer
 {
-    fn identity() -> T {
-        return T::default();
+    fn identity() -> f32 {
+        return f32::default();
 }
-    fn combine(acc: T, element: T) -> T {
+    fn combine(acc: f32, element: f32) -> f32 {
         acc + element
     }
 }
 
-struct MaxReducer;
+pub struct MaxReducer;
 
-impl<T> Reducer<T> for MaxReducer
-where
-    T: Add<Output = T> + Copy + PartialOrd + Default,
+impl Reducer for MaxReducer
 {
-    fn identity() -> T {
-        return T::default();
+    fn identity() -> f32 {
+        return f32::default();
     }
-    fn combine(acc: T, element: T) -> T {
+    fn combine(acc: f32, element: f32) -> f32 {
         if acc > element { acc } else { element }
     }
 }
