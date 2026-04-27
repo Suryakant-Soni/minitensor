@@ -31,9 +31,8 @@ where
     let axis_stride = input_strides[axis];
     let axis_dim = tensor.shape()[axis];
     for i in 0..out_numel {
-        // get the logical index from out shape, this will also be logical index for non-axis input elements
-        // TODO : remove convert_flat_position_to_logical_nd method in every loop pass and move it to incremental index calculation
-        let out_index = indexing::convert_flat_position_to_logical_nd(i, &reduced_shape);
+        // intitate logical index for reduced shape
+        let mut out_index = vec![0; reduced_shape.len()];
         let mut base = 0;
         // calculate base value for calculating flat index of input tensor per non-axis increment
         for d in 0..input_rank {
@@ -48,6 +47,12 @@ where
                 d - 1
             };
             base += input_strides[d] * out_index[out_d];
+            // once base is calculated, run odometer logic
+            out_index[d] += 1;
+            if out_index[d] < reduced_shape[out_d]{
+                break;
+            }
+            out_index[d] = 0;
         }
 
         let (mut acc, start_j) = if R::use_first_elem_as_init() {
@@ -200,9 +205,8 @@ mod tests {
     #[test]
     fn reduce_max_three_dim_tensor_with_negative_values() {
         let data = vec![
-            -1.0, -5.0, 3.0, 4.5, 0.0, 2.0, -2.0, 8.0, -1.0, 7.0, 1.0, -3.0, 6.0, 5.0, -4.0,
-            -10.0, 11.0, -12.0, 13.0, -14.0, 9.0, -8.0, 7.0, -6.0, 5.0, 4.0, 3.0, 2.0, 1.0,
-            0.0,
+            -1.0, -5.0, 3.0, 4.5, 0.0, 2.0, -2.0, 8.0, -1.0, 7.0, 1.0, -3.0, 6.0, 5.0, -4.0, -10.0,
+            11.0, -12.0, 13.0, -14.0, 9.0, -8.0, 7.0, -6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0,
         ];
         let tensor = Tensor::from_vec(data, vec![2, 3, 5]).unwrap();
         let res_tensor_keepdim = tensor.max(1, true).unwrap();

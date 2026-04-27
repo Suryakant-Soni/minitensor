@@ -67,7 +67,7 @@ where
             let bv = b.get_with_flat_unchecked(b_flat);
             out_buf[i] = f(av, bv);
         }
-        // no need to compute next flat index for last index
+        // if condition reason - we do not need to compute next flat index for last index
         if i + 1 < len {
             indexing::compute_index_on_increment(
                 &mut l_idx,
