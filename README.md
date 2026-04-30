@@ -16,13 +16,8 @@ them by writing them.
 
 ## Architecture
 
-User code
-│
-▼
-Tensor API  ──►  Shape-aware IR  ──►  Execution backend (interpreter / VM / JIT)
-│                       │
-└──► Storage layer ◄────┘
-(Arc<[f32]>, CoW)
+<img width="785" height="350" alt="image" src="https://github.com/user-attachments/assets/c99a61e9-766c-470a-ab46-78c4d3f6a4ed" />
+
 
 Three layers, kept deliberately separate:
 
